@@ -11,24 +11,10 @@ class problem_formulation:
 
     def __init__(self, path,n_vehicles,cap_vehicle,min_load):
 
-        # The initialization step does the following:
-            # - Load the data
-            # - Separate it into a user specified ammount fo clusters
-            # (We can also change it to read a predefined list of clusters)
-            # Generate a matrix containing all the relevant information self.node_info
-            # Create the decision variables
-            # Display data 
-        
+           
         # Load data and separate into clusters
         self.node_info = pd.read_excel(path).to_numpy().T
-
-        # Find weights of coneccting arcs
-        from scipy.spatial import distance_matrix
-        self.weights_of_arcs = distance_matrix(self.node_info.T[:,1:3], self.node_info.T[:,1:3])
-        #Change shape so it matches the decision variables (Drop the 0s)
-        self.weights_of_arcs = self.weights_of_arcs[self.weights_of_arcs != 0].reshape((40,39))
         
-
         #Other Parameters
         self.n_vehicles = n_vehicles
         self.cap_vehicle = cap_vehicle
@@ -37,24 +23,7 @@ class problem_formulation:
         # Initialize model
         self.model = Model()
 
-
-        # Create decision variables
-        self.decision_vars = []
-        #Add the decision variables to the model
-        x,y = np.shape(self.weights_of_arcs)
-        for i in range(x):
-            for j in range(y):
-                    if i < j:
-                        self.decision_vars.append(self.model.addVar(lb=0, ub=1, vtype=GRB.BINARY,name="x[%s,%s]"%(i+1,j+1)))
-                    else:
-                        self.decision_vars.append(self.model.addVar(lb=0, ub=1, vtype=GRB.BINARY,name="x[%s,%s]"%(i+1,j+2)))
-
-        self.decision_vars = [self.decision_vars[i:i+39] for i in range(0, len(self.decision_vars), 39)]
-        
-        self.model.update()
-
         print(colored('Successfully loaded data and initialized model', 'green'))
-        print(len(self.decision_vars))
 
     def cluster(self, N):
 
@@ -66,6 +35,7 @@ class problem_formulation:
         kmeans.fit(self.node_info[[1,2],:].T)
         cluster_data = kmeans.predict(self.node_info[[1,2],:].T)
         self.node_info = np.vstack((self.node_info, cluster_data))
+
         print(colored('Sucessfully created clusters', 'green'))
 
 
@@ -83,31 +53,45 @@ class problem_formulation:
     def add_origin_depot(self,x,y):
 
         self.origin = [x,y]
+
+        print(colored('Sucessfully added origin depot', 'green'))
+
+    def decision_variables(self):
+
+        # Create a dictionary containing all decision variables
+        self.decision = {}
+
+        # List containing the names of all the nodes (including home node)
+        self.IDs = [0] + [int(n) for n in self.node_info[0]]
         
-        # Find Costs
-        origin_weights = [np.linalg.norm([self.node_info[1][n]-x,self.node_info[2][n]-y]) for n in range(len(self.node_info.T))]
+        # Loop to create the decsion variables and add them to the dictionary
+        for node in self.IDs:
+            #Remove ID of current node so there are no variables for travelling to the same node
+            other_IDs = [x for x in self.IDs if x != node]
 
-        origin_vars = []     
+            for i in other_IDs:
+                #Define the variable
+                self.decision['%s,%s'%(node,i)] = self.model.addVar(lb=0, ub=1, vtype=GRB.BINARY,name='%s,%s'%(node,i))
 
-        for n in range(len(self.node_info.T)):
-            origin_vars.append(self.model.addVar(lb=0, ub=1, vtype=GRB.BINARY,name="x[%s,%s]"%(0,n+1)))
 
-        # Append to the weights of arcs matrix
-        transpose = np.array([origin_weights])
-        self.weights_of_arcs = np.hstack((self.weights_of_arcs, transpose.T))
-        self.weights_of_arcs = np.vstack((self.weights_of_arcs, np.array([origin_weights])))
+
+        # Find the costs
+        self.costs = {}
+
+        # Array containing all points starting from the origin depot
+        locations = np.vstack((self.origin, self.node_info[1:3].T))
+
+        for node in self.IDs:
+            #Remove ID of current node so there are no variables for travelling to the same node
+            other_IDs = [x for x in self.IDs if x != node]
+
+            for i in other_IDs:
+                # Caluculate the cost
+                self.costs['%s,%s'%(node,i)] = np.linalg.norm(locations[i]-locations[node])
         
-        # Append to the decision variables
-
-        for n in range(len(self.decision_vars)):
-            
-            self.decision_vars[n].append(self.model.addVar(lb=0, ub=1, vtype=GRB.BINARY,name="x[%s,%s]"%(n+1,0)))
         
-        self.decision_vars.append(origin_vars)
-
         self.model.update()
-
-        print(colored('Sucessfully added origin depot and created relevant decision variables', 'green'))
+        print(colored('Sucessfully created decision variables and clculated associated costs', 'green'))
 
 
     def display_results(self, title, final=False):
@@ -155,40 +139,179 @@ class problem_formulation:
 
     def degree_constraints(self):
         
-        # Variable holding data on clusters
-        clusters = self.node_info[3]
+        # Variable holding data on clusters (First one is the 0 node whih doesnt beling to any cluster)
+        clusters = np.hstack((np.array([-1]),self.node_info[3]))
+        
 
-        #Single outgoing arc per cluster
+
+        #Single outgoing/incoming arc per cluster ------------------------------------------------------
+
+
+        for n in range(self.N): 
+
+            # Find IDs of all nodes in cluster
+            nodes_in_cluster = [n for n in np.where(clusters == n)[0]]
+            
+            # Find IDs of all other nodes where those nodes link
+            other_nodes = [n for n in self.IDs if n not in nodes_in_cluster][1:]
+
+            # Create the linear expressions
+            lhs_out = LinExpr()
+            lhs_in = LinExpr()
+
+            for i in nodes_in_cluster:
+                for j in other_nodes:
+
+                    lhs_out += self.decision['%s,%s'%(i,j)]
+                    lhs_in += self.decision['%s,%s'%(j,i)]
+            
+            # Add COnstraints to the model
+            self.model.addConstr(lhs=lhs_out, sense = GRB.EQUAL, rhs=1, name = 'DegreeConstraintOutgoing:%s'%(n))
+            self.model.addConstr(lhs=lhs_in, sense = GRB.EQUAL, rhs=1, name = 'DegreeConstraintIncoming:%s'%(n))
+
+
+        
+        # Constraints for home depot---------------------------------------------------------
+
+        # Create the linear expressions
+        lhs_out_home = LinExpr()
+        lhs_in_home = LinExpr()
+
+        for n in self.IDs[1:]:
+            lhs_out_home += self.decision['%s,%s'%(self.IDs[0],n)]
+            lhs_in_home += self.decision['%s,%s'%(n,self.IDs[0])]
+        
+        # Add COnstraints to the model
+        self.model.addConstr(lhs=lhs_out_home, sense = GRB.EQUAL, rhs=self.n_vehicles, name = 'HomeOutgoing')
+        self.model.addConstr(lhs=lhs_in_home, sense = GRB.EQUAL, rhs=self.n_vehicles, name = 'HomeIncoming')
+
+
+        self.model.update()
+
+        print(colored('Sucessfully added degree constraints to the model', 'green'))
+
+    
+
+    def flow_constraints(self):
+
+         # Variable holding data on clusters (First one is the 0 node whih doesnt beling to any cluster)
+        clusters = np.hstack((np.array([-1]),self.node_info[3]))
+        
+
+
+        #If an arc comes into a node and arc must also come out of that node ------------------------------------------------------
+
+
+        for n in range(self.N): 
+
+            # Find IDs of all nodes in cluster
+            nodes_in_cluster = [n for n in np.where(clusters == n)[0]]
+            
+            # Find IDs of all other nodes where those nodes link
+            other_nodes = [n for n in self.IDs if n not in nodes_in_cluster][1:]
+
+            # Create the linear expressions
+            
+
+            for i in nodes_in_cluster:
+
+                lhs = LinExpr()
+                rhs= LinExpr()
+
+                for j in other_nodes:
+
+                    lhs += self.decision['%s,%s'%(i,j)]
+                    rhs += self.decision['%s,%s'%(j,i)]
+                
+                self.model.addConstr(lhs=lhs, sense = GRB.EQUAL, rhs=rhs, name = 'FlowConservationForNode:%s'%(i))
+        
+
+
+
+        # Define flows between clusters-------------------------------------------------------------
+
+
+        # Dictionary to store (y = 1 if clusters are connected, 0 if they are not connected)
+        self.y_clust = {}
+
+
+        list_of_clusters = [-1] + [x for x in range(self.N)]
+        
+        for p in list_of_clusters:
+            
+            #List containing all other clusters except p
+            other_clusters = [n for n in list_of_clusters if n != p]
+
+            for l in other_clusters:
+
+                # List of nodes in cluster p
+                cluster_p = [n for n in np.where(clusters == p)[0]]
+                
+                # List of nodes in cluster l  
+                cluster_l = [n for n in np.where(clusters == l)[0]]
+
+                # Sum of all the vars
+                rhs = LinExpr()
+
+                for i in cluster_p:
+                    for j in cluster_l:
+
+                        rhs += self.decision['%s,%s'%(i,j)]
+                
+                self.y_clust['%s,%s'%(p,l)] = rhs
+
+
+        self.model.update()
+
+        print(colored('Sucessfully added flow constraints to the model', 'green'))
+                        
+
+    def sideand_subtour_elimination(self):
+
+        # Find the demand per cluster
+
+        cluster_demand = []
+
         for n in range(self.N):
 
-            # Find indexes of cluster for condition
-            indexes = np.where(clusters == n)[0]
+            demand = np.sum(self.node_info[4][self.node_info[3]==n])
+            cluster_demand.append(demand)
+
+        # Minimum demand from other clusters (q dash)
+
+        min_other = []
+
+        for x in range(self.N):
+
+            comp_min = min(cluster_demand[:x] + cluster_demand[x+1:])
+            min_other.append(comp_min)
+        
+        
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+
+
+        
+
             
             
-            #Variables of interest
 
-            # Select only connections from variables withing the cluster (First sigma condition)
-            voi = [self.decision_vars[i] for i in indexes]
+
             
-            const = LinExpr()
-
-            # Remove connections withing the same cluster (second sigma condition)
-            for n, v in enumerate(voi):
-
-                for i in indexes:
-
-                    if i < indexes[n]:
-                        del v[i]
-                    elif i == indexes[n]:
-                        pass
-                    else:
-                        del v[i-1]
-                    
-                print(len(v))
-                for x in v:
-                    const += x 
-
-
+            
 
             
 
@@ -209,9 +332,11 @@ class problem_formulation:
 
 
 problem = problem_formulation('dataproblem1.xlsx',5,20,10)
-
 problem.cluster(10)
-problem.demand(random=True, u=5, l=0)
-problem.add_origin_depot(0,0)
+problem.demand(random=True, u = 5, l=1)
+problem.add_origin_depot(50,50)
+problem.decision_variables()
 problem.degree_constraints()
+problem.flow_constraints()
+problem.sideand_subtour_elimination()
 #problem.display_results('dghkdvs')

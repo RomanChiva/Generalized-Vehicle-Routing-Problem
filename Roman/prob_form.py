@@ -1,3 +1,4 @@
+from lib2to3.pgen2.token import GREATEREQUAL
 import numpy as np
 import pandas as pd
 import scipy as sp
@@ -96,7 +97,6 @@ class problem_formulation:
 
     def display_results(self, title, final=False):
 
-
         # Remember to change it to work with the home depot
 
         # Create Plot
@@ -142,8 +142,6 @@ class problem_formulation:
         # Variable holding data on clusters (First one is the 0 node whih doesnt beling to any cluster)
         clusters = np.hstack((np.array([-1]),self.node_info[3]))
         
-
-
         #Single outgoing/incoming arc per cluster ------------------------------------------------------
 
 
@@ -197,10 +195,7 @@ class problem_formulation:
          # Variable holding data on clusters (First one is the 0 node whih doesnt beling to any cluster)
         clusters = np.hstack((np.array([-1]),self.node_info[3]))
         
-
-
         #If an arc comes into a node and arc must also come out of that node ------------------------------------------------------
-
 
         for n in range(self.N): 
 
@@ -224,8 +219,6 @@ class problem_formulation:
                     rhs += self.decision['%s,%s'%(j,i)]
                 
                 self.model.addConstr(lhs=lhs, sense = GRB.EQUAL, rhs=rhs, name = 'FlowConservationForNode:%s'%(i))
-        
-
 
 
         # Define flows between clusters-------------------------------------------------------------
@@ -266,10 +259,13 @@ class problem_formulation:
         print(colored('Sucessfully added flow constraints to the model', 'green'))
                         
 
-    def sideand_subtour_elimination(self):
+    def side_and_subtour_elimination(self):
+
+        
+        # ======PREP====================
+
 
         # Find the demand per cluster
-
         cluster_demand = []
 
         for n in range(self.N):
@@ -277,7 +273,7 @@ class problem_formulation:
             demand = np.sum(self.node_info[4][self.node_info[3]==n])
             cluster_demand.append(demand)
 
-        # Minimum demand from other clusters (q dash)
+        # Minimum demand from other clusters (q bar)
 
         min_other = []
 
@@ -285,41 +281,104 @@ class problem_formulation:
 
             comp_min = min(cluster_demand[:x] + cluster_demand[x+1:])
             min_other.append(comp_min)
+
+    # Define U (Sketched out by this atm) (U is the vehice load just after leaving a cluster)
+
+        list_of_clusters = [-1] + [x for x in range(self.N)]
+
+        u = self.model.addVars(self.N, vtype=GRB.CONTINUOUS)
+
+
+        #================= Constraints=================
+
+        # Ensure vehicle has enough load to deliver at cluster P
+
+        for p in range(self.N): 
+            # Left hand side
+            lhs = LinExpr()
+            lhs += u[p] + (self.cap_vehicle-min_other[p]-cluster_demand[p])*self.y_clust['-1,%s'%p]- min_other[p]*self.y_clust['%s,-1'%p]
+
+            # Right hand side of constraint
+            rhs = LinExpr()
+            rhs += self.cap_vehicle-min_other[p]
+
+            self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=rhs, name='Load Constraint Cluster %s'%p)
+
+
+        # Comply with minimum load before returning to origin depo
+
+        for p in range(self.N): 
+            # Left hand side
+            lhs = LinExpr()
+            lhs += u[p] + min_other[p]*self.y_clust['-1,%s'%p] +(min_other[p]+cluster_demand[p]- self.min_load)*self.y_clust['%s,-1'%p]
+
+            # Right hand side of constraint
+            rhs = LinExpr()
+            rhs += min_other[p]+cluster_demand[p]
+
+            self.model.addConstr(lhs=lhs, sense= GRB.GREATER_EQUAL, rhs=rhs, name='Min Load Delivered Before Return to Depo %s'%p)
+
+        # No Single Customer Visit TRips
+
+
+        for p in range(1,self.N): 
+
+            # Left hand side
+            lhs = LinExpr()
+            lhs += self.y_clust['-1,%s'%p] + self.y_clust['%s,-1'%p]
+
+            self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=1, name='Min Load Delivered Before Return to Depo %s'%p)
         
+
+        # Continuity
+
+        for p in range(self.N):
+            for l in range(self.N):
+
+                if p!=l:
+
+                    # Left hand side
+                    lhs = LinExpr()
+                    lhs += u[p] + u[l] + self.cap_vehicle*self.y_clust['{a},{b}'.format(a=p, b=l)] + (self.cap_vehicle - cluster_demand[p] - cluster_demand[l])*self.y_clust['{a},{b}'.format(a=l, b=p)]
+                    # Right hand side of constraint
+                    rhs = LinExpr()
+                    rhs += self.cap_vehicle - cluster_demand[l]
+
+                    self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=rhs, name='COntinuity between clusters %s,%s'%(p,l))
+
+        
+        # Non-Negativity for u
+        
+        for i in range(len(u)):
+            self.model.addConstr(lhs=u[i], sense= GRB.GREATER_EQUAL, rhs=0, name='Non_negative U[%s]'%i)
+
+        self.model.update()
+
+        print(colored('Sucessfully added Side and Subtour elimination constraints', 'green'))
+    
+
+    # Create Objective function
+    def add_obj(self):
+
+        self.obj = LinExpr()
+
+        for i in self.IDs:
+            for j in self.IDs:
+
+                if i!=j:
+                    self.obj += self.decision['{a},{b}'.format(a=i,b=j)]*self.costs['{a},{b}'.format(a=i,b=j)]
         
 
+        self.model.setObjective(self.obj, GRB.MINIMIZE)
 
-
-
-
-
+        self.model.update()
         
+        print(colored('Sucessfully created objective function', 'green'))
 
 
-
-
-
-
-
+    def optimize_model(self):
         
-
-
-        
-
-            
-            
-
-
-            
-            
-
-            
-
-
-
-
-
-
+        self.model.optimize()
 
 
 
@@ -338,5 +397,7 @@ problem.add_origin_depot(50,50)
 problem.decision_variables()
 problem.degree_constraints()
 problem.flow_constraints()
-problem.sideand_subtour_elimination()
+problem.side_and_subtour_elimination()
+problem.add_obj()
+problem.optimize_model()
 #problem.display_results('dghkdvs')

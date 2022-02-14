@@ -58,20 +58,20 @@ Subject To
    + x[2,10] + x[3,4] + x[3,9] + x[3,10] + x[5,4] + x[5,9] + x[5,10]
    + x[6,4] + x[6,9] + x[6,10] + x[7,4] + x[7,9] + x[7,10] + x[8,4]
    + x[8,9] + x[8,10] = 1
- DegreeConstraintOutgoing_1: x[5,1] + x[5,2] + x[5,3] + x[5,4] + x[5,6]
-   + x[5,8] + x[5,9] + x[5,10] + x[7,1] + x[7,2] + x[7,3] + x[7,4] + x[7,6]
-   + x[7,8] + x[7,9] + x[7,10] = 1
- DegreeConstraintIncoming_1: x[1,5] + x[1,7] + x[2,5] + x[2,7] + x[3,5]
-   + x[3,7] + x[4,5] + x[4,7] + x[6,5] + x[6,7] + x[8,5] + x[8,7] + x[9,5]
-   + x[9,7] + x[10,5] + x[10,7] = 1
- DegreeConstraintOutgoing_2: x[1,4] + x[1,5] + x[1,7] + x[1,9] + x[1,10]
+ DegreeConstraintOutgoing_1: x[1,4] + x[1,5] + x[1,7] + x[1,9] + x[1,10]
    + x[2,4] + x[2,5] + x[2,7] + x[2,9] + x[2,10] + x[3,4] + x[3,5] + x[3,7]
    + x[3,9] + x[3,10] + x[6,4] + x[6,5] + x[6,7] + x[6,9] + x[6,10]
    + x[8,4] + x[8,5] + x[8,7] + x[8,9] + x[8,10] = 1
- DegreeConstraintIncoming_2: x[4,1] + x[4,2] + x[4,3] + x[4,6] + x[4,8]
+ DegreeConstraintIncoming_1: x[4,1] + x[4,2] + x[4,3] + x[4,6] + x[4,8]
    + x[5,1] + x[5,2] + x[5,3] + x[5,6] + x[5,8] + x[7,1] + x[7,2] + x[7,3]
    + x[7,6] + x[7,8] + x[9,1] + x[9,2] + x[9,3] + x[9,6] + x[9,8] + x[10,1]
    + x[10,2] + x[10,3] + x[10,6] + x[10,8] = 1
+ DegreeConstraintOutgoing_2: x[5,1] + x[5,2] + x[5,3] + x[5,4] + x[5,6]
+   + x[5,8] + x[5,9] + x[5,10] + x[7,1] + x[7,2] + x[7,3] + x[7,4] + x[7,6]
+   + x[7,8] + x[7,9] + x[7,10] = 1
+ DegreeConstraintIncoming_2: x[1,5] + x[1,7] + x[2,5] + x[2,7] + x[3,5]
+   + x[3,7] + x[4,5] + x[4,7] + x[6,5] + x[6,7] + x[8,5] + x[8,7] + x[9,5]
+   + x[9,7] + x[10,5] + x[10,7] = 1
  HomeOutgoing: x[0,1] + x[0,2] + x[0,3] + x[0,4] + x[0,5] + x[0,6] + x[0,7]
    + x[0,8] + x[0,9] + x[0,10] = 1
  HomeIncoming: x[1,0] + x[2,0] + x[3,0] + x[4,0] + x[5,0] + x[6,0] + x[7,0]
@@ -85,12 +85,6 @@ Subject To
  FlowConservationForNode_10: - x[1,10] - x[2,10] - x[3,10] - x[5,10]
    - x[6,10] - x[7,10] - x[8,10] + x[10,1] + x[10,2] + x[10,3] + x[10,5]
    + x[10,6] + x[10,7] + x[10,8] = 0
- FlowConservationForNode_5: - x[1,5] - x[2,5] - x[3,5] - x[4,5] + x[5,1]
-   + x[5,2] + x[5,3] + x[5,4] + x[5,6] + x[5,8] + x[5,9] + x[5,10] - x[6,5]
-   - x[8,5] - x[9,5] - x[10,5] = 0
- FlowConservationForNode_7: - x[1,7] - x[2,7] - x[3,7] - x[4,7] - x[6,7]
-   + x[7,1] + x[7,2] + x[7,3] + x[7,4] + x[7,6] + x[7,8] + x[7,9] + x[7,10]
-   - x[8,7] - x[9,7] - x[10,7] = 0
  FlowConservationForNode_1: x[1,4] + x[1,5] + x[1,7] + x[1,9] + x[1,10]
    - x[4,1] - x[5,1] - x[7,1] - x[9,1] - x[10,1] = 0
  FlowConservationForNode_2: x[2,4] + x[2,5] + x[2,7] + x[2,9] + x[2,10]
@@ -101,49 +95,46 @@ Subject To
    + x[6,9] + x[6,10] - x[7,6] - x[9,6] - x[10,6] = 0
  FlowConservationForNode_8: - x[4,8] - x[5,8] - x[7,8] + x[8,4] + x[8,5]
    + x[8,7] + x[8,9] + x[8,10] - x[9,8] - x[10,8] = 0
+ FlowConservationForNode_5: - x[1,5] - x[2,5] - x[3,5] - x[4,5] + x[5,1]
+   + x[5,2] + x[5,3] + x[5,4] + x[5,6] + x[5,8] + x[5,9] + x[5,10] - x[6,5]
+   - x[8,5] - x[9,5] - x[10,5] = 0
+ FlowConservationForNode_7: - x[1,7] - x[2,7] - x[3,7] - x[4,7] - x[6,7]
+   + x[7,1] + x[7,2] + x[7,3] + x[7,4] + x[7,6] + x[7,8] + x[7,9] + x[7,10]
+   - x[8,7] - x[9,7] - x[10,7] = 0
  ClustersConnected_-1to0: - x[0,4] - x[0,9] - x[0,10] + y[-1,0] = 0
- ClustersConnected_-1to1: - x[0,5] - x[0,7] + y[-1,1] = 0
- ClustersConnected_-1to2: - x[0,1] - x[0,2] - x[0,3] - x[0,6] - x[0,8]
-   + y[-1,2] = 0
+ ClustersConnected_-1to1: - x[0,1] - x[0,2] - x[0,3] - x[0,6] - x[0,8]
+   + y[-1,1] = 0
+ ClustersConnected_-1to2: - x[0,5] - x[0,7] + y[-1,2] = 0
  ClustersConnected_0to-1: - x[4,0] - x[9,0] - x[10,0] + y[0,-1] = 0
- ClustersConnected_0to1: - x[4,5] - x[4,7] - x[9,5] - x[9,7] - x[10,5]
-   - x[10,7] + y[0,1] = 0
- ClustersConnected_0to2: - x[4,1] - x[4,2] - x[4,3] - x[4,6] - x[4,8]
+ ClustersConnected_0to1: - x[4,1] - x[4,2] - x[4,3] - x[4,6] - x[4,8]
    - x[9,1] - x[9,2] - x[9,3] - x[9,6] - x[9,8] - x[10,1] - x[10,2]
-   - x[10,3] - x[10,6] - x[10,8] + y[0,2] = 0
- ClustersConnected_1to-1: - x[5,0] - x[7,0] + y[1,-1] = 0
- ClustersConnected_1to0: - x[5,4] - x[5,9] - x[5,10] - x[7,4] - x[7,9]
-   - x[7,10] + y[1,0] = 0
- ClustersConnected_1to2: - x[5,1] - x[5,2] - x[5,3] - x[5,6] - x[5,8]
-   - x[7,1] - x[7,2] - x[7,3] - x[7,6] - x[7,8] + y[1,2] = 0
- ClustersConnected_2to-1: - x[1,0] - x[2,0] - x[3,0] - x[6,0] - x[8,0]
-   + y[2,-1] = 0
- ClustersConnected_2to0: - x[1,4] - x[1,9] - x[1,10] - x[2,4] - x[2,9]
+   - x[10,3] - x[10,6] - x[10,8] + y[0,1] = 0
+ ClustersConnected_0to2: - x[4,5] - x[4,7] - x[9,5] - x[9,7] - x[10,5]
+   - x[10,7] + y[0,2] = 0
+ ClustersConnected_1to-1: - x[1,0] - x[2,0] - x[3,0] - x[6,0] - x[8,0]
+   + y[1,-1] = 0
+ ClustersConnected_1to0: - x[1,4] - x[1,9] - x[1,10] - x[2,4] - x[2,9]
    - x[2,10] - x[3,4] - x[3,9] - x[3,10] - x[6,4] - x[6,9] - x[6,10]
-   - x[8,4] - x[8,9] - x[8,10] + y[2,0] = 0
- ClustersConnected_2to1: - x[1,5] - x[1,7] - x[2,5] - x[2,7] - x[3,5]
-   - x[3,7] - x[6,5] - x[6,7] - x[8,5] - x[8,7] + y[2,1] = 0
- LoadConstraintCluster0: 388 y[-1,0] - 4 y[0,-1] + u[0] <= 396
- LoadConstraintCluster1: 388 y[-1,1] - 8 y[1,-1] + u[1] <= 392
- LoadConstraintCluster2: 377 y[-1,2] - 4 y[2,-1] + u[2] <= 396
- MinLoadDeliveredBeforeReturntoDepo0: 4 y[-1,0] + 11 y[0,-1] + u[0] >= 12
- MinLoadDeliveredBeforeReturntoDepo1: 8 y[-1,1] + 11 y[1,-1] + u[1] >= 12
- MinLoadDeliveredBeforeReturntoDepo2: 4 y[-1,2] + 22 y[2,-1] + u[2] >= 23
- NoSingleCustomerVisits0: y[-1,0] + y[0,-1] <= 1
- NoSingleCustomerVisits1: y[-1,1] + y[1,-1] <= 1
- NoSingleCustomerVisits2: y[-1,2] + y[2,-1] <= 1
- ContinuityBetweenClusters[0,1]: 400 y[0,1] + 388 y[1,0] + u[0] - u[1]
-   <= 396
- ContinuityBetweenClusters[0,2]: 400 y[0,2] + 373 y[2,0] + u[0] - u[2]
-   <= 381
- ContinuityBetweenClusters[1,0]: 388 y[0,1] + 400 y[1,0] - u[0] + u[1]
+   - x[8,4] - x[8,9] - x[8,10] + y[1,0] = 0
+ ClustersConnected_1to2: - x[1,5] - x[1,7] - x[2,5] - x[2,7] - x[3,5]
+   - x[3,7] - x[6,5] - x[6,7] - x[8,5] - x[8,7] + y[1,2] = 0
+ ClustersConnected_2to-1: - x[5,0] - x[7,0] + y[2,-1] = 0
+ ClustersConnected_2to0: - x[5,4] - x[5,9] - x[5,10] - x[7,4] - x[7,9]
+   - x[7,10] + y[2,0] = 0
+ ClustersConnected_2to1: - x[5,1] - x[5,2] - x[5,3] - x[5,6] - x[5,8]
+   - x[7,1] - x[7,2] - x[7,3] - x[7,6] - x[7,8] + y[2,1] = 0
+ ContinuityBetweenClusters[0,1]: 400 y[0,1] + 369 y[1,0] + u[0] - u[1]
+   <= 380
+ ContinuityBetweenClusters[0,2]: 400 y[0,2] + 381 y[2,0] + u[0] - u[2]
    <= 392
- ContinuityBetweenClusters[1,2]: 400 y[1,2] + 377 y[2,1] + u[1] - u[2]
-   <= 381
- ContinuityBetweenClusters[2,0]: 373 y[0,2] + 400 y[2,0] - u[0] + u[2]
+ ContinuityBetweenClusters[1,0]: 369 y[0,1] + 400 y[1,0] - u[0] + u[1]
+   <= 389
+ ContinuityBetweenClusters[1,2]: 400 y[1,2] + 372 y[2,1] + u[1] - u[2]
    <= 392
- ContinuityBetweenClusters[2,1]: 377 y[1,2] + 400 y[2,1] - u[1] + u[2]
-   <= 396
+ ContinuityBetweenClusters[2,0]: 381 y[0,2] + 400 y[2,0] - u[0] + u[2]
+   <= 389
+ ContinuityBetweenClusters[2,1]: 372 y[1,2] + 400 y[2,1] - u[1] + u[2]
+   <= 380
  Non_negativeU[0]: u[0] >= 0
  Non_negativeU[1]: u[1] >= 0
  Non_negativeU[2]: u[2] >= 0

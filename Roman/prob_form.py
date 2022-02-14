@@ -15,8 +15,7 @@ class problem_formulation:
            
         # Load data and separate into clusters
         
-        self.node_info = pd.read_excel(path)[:10].to_numpy().T
-        print(self.node_info)
+        self.node_info = pd.read_excel(path).to_numpy().T
         
         #Other Parameters
         self.n_vehicles = n_vehicles
@@ -74,7 +73,7 @@ class problem_formulation:
 
             for i in other_IDs:
                 #Define the variable
-                self.decision['%s,%s'%(node,i)] = self.model.addVar(vtype=GRB.BINARY,name='x[%s,%s]'%(node,i))
+                self.decision['%s,%s'%(node,i)] = self.model.addVar(vtype=GRB.INTEGER, lb=0, ub=1,name='x[%s,%s]'%(node,i))
 
 
 
@@ -103,38 +102,39 @@ class problem_formulation:
 
         # Create Plot
         fig, ax = plt.subplots()
-        ax.scatter(self.node_info[1], self.node_info[2], c = self.node_info[3], cmap = 'hsv', marker='.',s=50)
-        ax.scatter(self.node_info[1], self.node_info[2], s = 7500, alpha=0.2, c = self.node_info[3], cmap = 'hsv', linewidth=0, marker='o')
+        ax.scatter(self.node_info[1], self.node_info[2], c = self.node_info[3], cmap = 'cool', marker='.',s=50)
+        ax.scatter(self.node_info[1], self.node_info[2], s = 500, alpha=0.2, c = self.node_info[3], cmap = 'cool', linewidth=0, marker='o')
         fig.suptitle(title, fontsize = 24)
 
         #Annotate plot
         for n, txt in enumerate(self.node_info[0]):
-            ax.annotate(txt, (self.node_info[1][n], self.node_info[2][n]), fontsize=7)
-
+            ax.annotate(int(txt), (self.node_info[1][n], self.node_info[2][n]), fontsize=7)
+        
+        ax.scatter(self.origin[0], self.origin[1], c = 'black', marker='o',s=50)
+        
         if final:
-            # Draw Connections
-            x,y = np.shape(self.weights_of_arcs)
+            
+            origin = np.array([0,self.origin[0],self.origin[1],-1,0])[np.newaxis]
+            self.node_info = np.hstack((origin.T, self.node_info))
 
-            for i in range(x):
-                for j in range(y):
-                    if self.decision_vars[i][j]:
+            for a in range(len(self.IDs)):
+                for b in range(len(self.IDs)):
 
-                        if i < j:
-
-                            x1 = self.node_info[1][i]
-                            x2 = self.node_info[1][j]
-                            y1 = self.node_info[2][i]
-                            y2 = self.node_info[2][j]
-                            
-                            
-                        else:
-                            x1 = self.node_info[1][i]
-                            x2 = self.node_info[1][j+1]
-                            y1 = self.node_info[2][i]
-                            y2 = self.node_info[2][j+1]
+                    if a != b:
+                        print(self.decision['%s,%s'%(a,b)].X)
+                        if self.decision['%s,%s'%(a,b)].X ==1:
                         
-                        ax.plot([x1,x2], [y1,y2], color = 'black', linewidth = 2)
-                        
+                            x0= self.node_info[1][a]
+                            x1= self.node_info[1][b]
+
+                            y0= self.node_info[2][a]
+                            y1= self.node_info[2][b]
+
+                            ax.plot([x0,x1],[y0,y1], color= 'black', linewidth=1, alpha=0.8)
+
+            
+
+        
 
         plt.show()
 
@@ -161,14 +161,18 @@ class problem_formulation:
             lhs_in = LinExpr()
 
             for i in nodes_in_cluster:
+                
+                lhs_out += self.decision['%s,%s'%(i,0)]
+                lhs_in += self.decision['%s,%s'%(0,i)]
+
                 for j in other_nodes:
 
                     lhs_out += self.decision['%s,%s'%(i,j)]
                     lhs_in += self.decision['%s,%s'%(j,i)]
             
             # Add COnstraints to the model
-            self.model.addConstr(lhs=lhs_out, sense = GRB.EQUAL, rhs=1, name = 'DegreeConstraintOutgoing:%s'%(n))
-            self.model.addConstr(lhs=lhs_in, sense = GRB.EQUAL, rhs=1, name = 'DegreeConstraintIncoming:%s'%(n))
+            self.model.addConstr(lhs=lhs_out, sense = GRB.EQUAL, rhs=1, name = 'DegreeConstraintOutgoing_%s'%(n))
+            self.model.addConstr(lhs=lhs_in, sense = GRB.EQUAL, rhs=1, name = 'DegreeConstraintIncoming_%s'%(n))
 
         # Constraints for home depot---------------------------------------------------------
 
@@ -214,14 +218,19 @@ class problem_formulation:
                 lhs = LinExpr()
                 rhs= LinExpr()
 
+                # =========== NOT IN PAPER ===========================
+
+                lhs += self.decision['%s,0'%i]
+                rhs += self.decision['0,%s'%i]
+
                 for j in other_nodes:
 
                     lhs += self.decision['%s,%s'%(i,j)]
                     rhs += self.decision['%s,%s'%(j,i)]
                 
-                self.model.addConstr(lhs=lhs, sense = GRB.EQUAL, rhs=rhs, name = 'FlowConservationForNode:%s'%(i))
+                self.model.addConstr(lhs=lhs, sense = GRB.EQUAL, rhs=rhs, name = 'FlowConservationForNode_%s'%(i))
 
-
+        self.model.update()
         # Define flows between clusters-------------------------------------------------------------
 
 
@@ -252,7 +261,7 @@ class problem_formulation:
                 
                 self.y_clust['%s,%s'%(p,l)] = self.model.addVar(vtype=GRB.INTEGER,name='y[%s,%s]'%(p,l))
 
-                self.model.addConstr(lhs = self.y_clust['%s,%s'%(p,l)], sense = GRB.EQUAL, rhs=rhs, name='ClustersConnected:{a}to{b}'.format(a=p,b=l))
+                self.model.addConstr(lhs = self.y_clust['%s,%s'%(p,l)], sense = GRB.EQUAL, rhs=rhs, name='ClustersConnected_{a}to{b}'.format(a=p,b=l))
 
         self.model.update()
 
@@ -299,7 +308,7 @@ class problem_formulation:
             rhs = LinExpr()
             rhs += self.cap_vehicle-min_other[p]
 
-            self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=rhs, name='LoadConstraintCluster%s'%p)
+            self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=rhs, name='LoadConstraintCluster_%s'%p)
 
         # Comply with minimum load before returning to origin depo
 
@@ -312,7 +321,7 @@ class problem_formulation:
             rhs = LinExpr()
             rhs += min_other[p]+cluster_demand[p]
 
-            self.model.addConstr(lhs=lhs, sense= GRB.GREATER_EQUAL, rhs=rhs, name='MinLoadDeliveredBeforeReturntoDepo%s'%p)
+            self.model.addConstr(lhs=lhs, sense= GRB.GREATER_EQUAL, rhs=rhs, name='MinLoadDeliveredBeforeReturntoDepo_%s'%p)
 
         # No Single Customer Visit TRips
 
@@ -322,10 +331,10 @@ class problem_formulation:
             lhs = LinExpr()
             lhs += self.y_clust['-1,%s'%p] + self.y_clust['%s,-1'%p]
 
-            self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=1, name='NoSingleCustomerVisits%s'%p)
+            self.model.addConstr(lhs=lhs, sense= GRB.LESS_EQUAL, rhs=1, name='NoSingleCustomerVisits_%s'%p)
         
 
-        # Continuity
+        # # Continuity
 
         for p in range(self.N):
             for l in range(self.N):
@@ -379,7 +388,13 @@ class problem_formulation:
         self.model.optimize()
         self.model.write('model.lp')
 
-        self.model.computeIIS()
-        self.model.write('resullts_trimmed.lp')
+        for key in self.decision:
+
+            print(key, self.decision[key])
+
+
+
+        #self.model.computeIIS()
+        #self.model.write('resullts_trimmed.lp')
 
 
